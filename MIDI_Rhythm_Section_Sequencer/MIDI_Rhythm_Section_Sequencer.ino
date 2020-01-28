@@ -17,7 +17,7 @@
  * In case a MIDI clock input is received, tempo is computed from that and the pot will be unresponsive. MIDI clock is always sent to the MIDI out.
  * 
  * by barito
- * (last update - 19/01/2020)
+ * (last update - 27/01/2020)
 */
 
 #include <MIDI.h>
@@ -409,18 +409,41 @@ for(int i = 0; i < STEPS_NUM; i++){
                 //LIVE PLAY & RECORDING
                 if(i < DRUM_NUM){ //to avoid bar steps...
                   //LIVE PLAY
-                  MIDI.sendNoteOn(drumNote[i], pot1Val, MIDI_CHANNEL); //play the drum
+                  MIDI.sendNoteOn(drumNote[i], pot1Val, MIDI_CHANNEL); //play the drum                  
                   //LIVE RECORDING
-                  if(liveRecording == true){ //record the drum
-                    if(noNotesYet == true){
+                  if(liveRecording){ //record the drum
+                    if(noNotesYet){
                       noNotesYet = false;
                       Step = 0;
                       bar = 0;
                     }
-                    activeStep[i][Step][bar] = true;
-                    stepDrumVolume[i][Step][bar] = pot1ValVol;
-                    bassPitch[i][Step][bar] = 0;//if zero, it's a drum
-                  }
+                    if(micros()-Time > stepLenght/2){dS = 1;}
+                    else{dS = 0;}
+                    if(Step < STEPS_NUM-1){
+                      activeStep[i][Step+dS][bar] = true;
+                      stepDrumVolume[i][Step+dS][bar] = pot1ValVol;
+                      bassPitch[i][Step+dS][bar] = 0;//if zero, it's a drum
+                    }
+                    else{
+                      if(dS == 0){
+                        activeStep[i][STEPS_NUM-1][bar] = true;
+                        stepDrumVolume[i][STEPS_NUM-1][bar] = pot1ValVol;
+                        bassPitch[i][STEPS_NUM-1][bar] = 0;//if zero, it's a drum
+                      }
+                      else /*if(dS == 1)*/{
+                        if(bar < BAR_NUM-1){
+                          activeStep[i][0][bar+1] = true;
+                          stepDrumVolume[i][0][bar+1] = pot1ValVol;
+                          bassPitch[i][0][bar+1] = 0;//if zero, it's a drum
+                        }
+                        else{
+                          activeStep[i][0][0] = true;
+                          stepDrumVolume[i][0][0] = pot1ValVol;
+                          bassPitch[i][0][0] = 0;//if zero, it's a drum
+                        }
+                      }
+                    }
+                  }                  
                 }
               }
             }
