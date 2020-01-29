@@ -10,14 +10,15 @@
  * - clear the whole sequence by keeping presed the "start" button for more than 3 seconds.
  * - clear the drum/channel sequence by pressing the drum/channel button while keeping presed "REC".
  * - "swing" your sequence by turning the "swing" potentiometer.
- * - drums 11 and 12 are used for arpeggio trig signals too.   
+ * - drums 11 and 12 are used for arpeggio trig signals too. for V-Trig simply add a 1KOhm resistor in series with Arduino out. For S-Trig a  
+ *   simple pnp transitor switch (i.e BC547 and a 1KOhm base resistor) is required.
  * - LIVE record incoming MIDI messages or your playing on the steps matrix by pressing "REC" button (only if bars are unlocked and sequence running).
  * - LIVE record incoming MIDI messages to the specific step by keeping pressed the destination step while receiving the message (only if the sequence is not playing - STOP).
  * Both MIDI clock input and output are implemented. In case no clock input is received, tempo is set with the dedicated potentiometer.
  * In case a MIDI clock input is received, tempo is computed from that and the pot will be unresponsive. MIDI clock is always sent to the MIDI out.
  * 
  * by barito
- * (last update - 27/01/2020)
+ * (last update - 28/01/2020)
 */
 
 #include <MIDI.h>
@@ -165,8 +166,8 @@ barHold = true;
 liveRecording = false;
 incomingClock = false;
 digitalWrite(recLEDPin, LOW);
-digitalWrite(arp1OutPin, HIGH);
-digitalWrite(arp2OutPin, HIGH);
+digitalWrite(arp1OutPin, LOW);
+digitalWrite(arp2OutPin, LOW);
 noNotesYet = true;
 Step = STEPS_NUM;
 START = false;
@@ -187,8 +188,8 @@ LED_Page_Update();
 
 void ArpTrig(){
 if(micros()-Time > 3000){ //3ms
-  digitalWriteDirect(arp1OutPin, LOW); 
-  digitalWriteDirect(arp2OutPin, HIGH); //S-trig
+  digitalWriteDirect(arp1OutPin, LOW); //V-trig
+  digitalWriteDirect(arp2OutPin, LOW); //S-trig
   /*if(trigReverse){digitalWriteDirect(arpOutPin, HIGH);}//arpeggio clock, positive default state
   else{digitalWriteDirect(arpOutPin, LOW);}//arpeggio clock, negative default state*/
 }
@@ -537,7 +538,7 @@ if(START == true){
       digitalWriteDirect(arp1OutPin, HIGH);
     }
     if(activeStep[DRUM_NUM-1][Step][bar] == true && muteState[DRUM_NUM-1] == false) {//ARPEGGIATOR 2,drum 12
-      digitalWriteDirect(arp2OutPin, LOW);
+      digitalWriteDirect(arp2OutPin, HIGH);
       /*if(trigReverse){digitalWriteDirect(arpOutPin, LOW);}//arpeggio clock, negative edge (reverse)
       else{digitalWriteDirect(arpOutPin, HIGH);}//arpeggio clock, positive edge*/
     }
