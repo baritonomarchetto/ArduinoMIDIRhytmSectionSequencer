@@ -10,7 +10,7 @@
  * - clear the whole sequence by keeping presed the "start" button for more than 3 seconds.
  * - clear the drum/channel sequence by pressing the drum/channel button while keeping presed "REC".
  * - "swing" your sequence by turning the "swing" potentiometer.
- * - drums 11 and 12 are used for arpeggio trig signals too. for V-Trig simply add a 1KOhm resistor in series with Arduino out. For S-Trig a  
+ * - drums 11 and 12 are used for arpeggio trig signals too. For V-Trig simply add a 1KOhm resistor in series with Arduino out. For S-Trig a  
  *   simple pnp transitor switch (i.e BC547 and a 1KOhm base resistor) is required.
  * - LIVE record incoming MIDI messages or your playing on the steps matrix by pressing "REC" button (only if bars are unlocked and sequence running).
  * - LIVE record incoming MIDI messages to the specific step by keeping pressed the destination step while receiving the message (only if the sequence is not playing - STOP).
@@ -18,7 +18,7 @@
  * In case a MIDI clock input is received, tempo is computed from that and the pot will be unresponsive. MIDI clock is always sent to the MIDI out.
  * 
  * by barito
- * (last update - 26/02/2020)
+ * (last update - 01/03/2020)
 */
 
 #include <MIDI.h>
@@ -80,7 +80,6 @@ byte volShOp = 3;
 bool evenStep;
 byte swingFactor;
 byte dS;
-bool busy;
 unsigned long Time;
 unsigned long stepLenght; //delay between steps
 unsigned long clockLenght; // =1/6 stepenght
@@ -262,39 +261,37 @@ else if (clockTick == 25){//25-1 = 24 = 1 beat
 ///////////////////////////////
 //NOTE ON
 //receive every channel and transmit over MIDI_CHANNEL
-void Handle_Note_On(byte on_channel, byte on_pitch, byte on_velocity){
-if(busy == false){
-busy = true;
-MIDI.sendNoteOn(on_pitch, on_velocity, on_channel);//echo the message
-if(on_channel <= DRUM_NUM /*&& on_pitch >= MIN_PITCH*/){
+void Handle_Note_On(byte channel, byte pitch, byte velocity){
+MIDI.sendNoteOn(pitch, velocity, channel);//echo the message
+if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
   noNotesYet = false;
   if(START){
     if(liveRecording){
       if(micros()-Time > stepLenght/2){dS = 1;}
       else{dS = 0;}
-      if(on_channel == MIDI_CHANNEL){ //RECORD INCOMING MIDI DRUMS
+      if(channel == MIDI_CHANNEL){ //RECORD INCOMING MIDI DRUMS
         for(int i = 0; i< DRUM_NUM; i++) {    
-          if(on_pitch ==  drumNote[i]){
+          if(pitch ==  drumNote[i]){
             if(Step < STEPS_NUM-1){
               activeStep[i][Step+dS][bar] = true;
-              stepDrumVolume[i][Step+dS][bar] = on_velocity;
+              stepDrumVolume[i][Step+dS][bar] = velocity;
               bassPitch[i][Step+dS][bar] = 0;//if zero, it's a drum
             }
             else{
               if(dS == 0){
                 activeStep[i][STEPS_NUM-1][bar] = true;
-                stepDrumVolume[i][STEPS_NUM-1][bar] = on_velocity;
+                stepDrumVolume[i][STEPS_NUM-1][bar] = velocity;
                 bassPitch[i][STEPS_NUM-1][bar] = 0;//if zero, it's a drum
               }
               else /*if(dS == 1)*/{
                 if(bar < BAR_NUM-1){
                   activeStep[i][0][bar+1] = true;
-                  stepDrumVolume[i][0][bar+1] = on_velocity;
+                  stepDrumVolume[i][0][bar+1] = velocity;
                   bassPitch[i][0][bar+1] = 0;//if zero, it's a drum
                 }
                 else{
                   activeStep[i][0][0] = true;
-                  stepDrumVolume[i][0][0] = on_velocity;
+                  stepDrumVolume[i][0][0] = velocity;
                   bassPitch[i][0][0] = 0;//if zero, it's a drum
                 }
               }
@@ -303,28 +300,28 @@ if(on_channel <= DRUM_NUM /*&& on_pitch >= MIN_PITCH*/){
         }
       }
       else{//channel != MIDI_CHANNEL -> RECORD INCOMING MIDI PITCHES
-        drum = on_channel-1;//this speeds up undoing the recording because it places you on the correct drum -> channel
+        drum = channel-1;//this speeds up undoing the recording because it places you on the correct drum -> channel
         if(Step < STEPS_NUM-1){
-          activeStep[on_channel-1][Step+dS][bar] = true;
-          stepDrumVolume[on_channel-1][Step+dS][bar] = on_velocity;
-          bassPitch[on_channel-1][Step+dS][bar] = on_pitch;
+          activeStep[channel-1][Step+dS][bar] = true;
+          stepDrumVolume[channel-1][Step+dS][bar] = velocity;
+          bassPitch[channel-1][Step+dS][bar] = pitch;
         }
         else{//if(Step = latest step)
           if(dS == 0){
-            activeStep[on_channel-1][STEPS_NUM-1][bar] = true;
-            stepDrumVolume[on_channel-1][STEPS_NUM-1][bar] = on_velocity;
-            bassPitch[on_channel-1][STEPS_NUM-1][bar] = on_pitch;
+            activeStep[channel-1][STEPS_NUM-1][bar] = true;
+            stepDrumVolume[channel-1][STEPS_NUM-1][bar] = velocity;
+            bassPitch[channel-1][STEPS_NUM-1][bar] = pitch;
           }
           else /*if(dS == 1)*/{
             if(bar < BAR_NUM-1){
-              activeStep[on_channel-1][0][bar+1] = true;
-              stepDrumVolume[on_channel-1][0][bar+1] = on_velocity;
-              bassPitch[on_channel-1][0][bar+1] = on_pitch;
+              activeStep[channel-1][0][bar+1] = true;
+              stepDrumVolume[channel-1][0][bar+1] = velocity;
+              bassPitch[channel-1][0][bar+1] = pitch;
             }
             else{
-              activeStep[on_channel-1][0][0] = true;
-              stepDrumVolume[on_channel-1][0][0] = on_velocity;
-              bassPitch[on_channel-1][0][0] = on_pitch;
+              activeStep[channel-1][0][0] = true;
+              stepDrumVolume[channel-1][0][0] = velocity;
+              bassPitch[channel-1][0][0] = pitch;
             }
           }
         }
@@ -336,11 +333,11 @@ if(on_channel <= DRUM_NUM /*&& on_pitch >= MIN_PITCH*/){
     for(int j = 0; j< STEPS_NUM; j++) {
       if(stepButtonState[j] == LOW){ //WHILE KEEPING THE DESTINATION STEP BUTTON PRESSED
         digitalWriteDirect(j+38, HIGH);//lit the hold LED
-        if(on_channel == MIDI_CHANNEL){ //RECORD INCOMING MIDI DRUMS
+        if(channel == MIDI_CHANNEL){ //RECORD INCOMING MIDI DRUMS
           for(int i = 0; i< DRUM_NUM; i++) {    
-            if(on_pitch ==  drumNote[i]){
+            if(pitch ==  drumNote[i]){
               activeStep[i][j][bar] = true;
-              stepDrumVolume[i][j][bar] = on_velocity;
+              stepDrumVolume[i][j][bar] = velocity;
               bassPitch[i][j][bar] = 0;
             }
           }
@@ -351,16 +348,14 @@ if(on_channel <= DRUM_NUM /*&& on_pitch >= MIN_PITCH*/){
           stepDrumVolume[drum][j][bar] = 0;
           bassPitch[drum][j][bar] = 0;
           //...set the incoming message to the right drum (MIDI channel). This avoid the need for a preventive selection of the right drum (channel).
-          activeStep[on_channel-1][j][bar] = true; 
-          stepDrumVolume[on_channel-1][j][bar] = on_velocity;
-          bassPitch[on_channel-1][j][bar] = on_pitch;
+          activeStep[channel-1][j][bar] = true; 
+          stepDrumVolume[channel-1][j][bar] = velocity;
+          bassPitch[channel-1][j][bar] = pitch;
         }
       }
     }
     //}
   }
-}
-busy = false;
 }
 }
 
@@ -368,9 +363,9 @@ busy = false;
 //NOTE OFF
 //NECESSARY FOR PITCHES
 //There's no need to replicate note-on code and keep track of pitched sounds because pitched notes are turned off every next step.
-void Handle_Note_Off(byte of_channel, byte of_pitch, byte of_velocity){
-MIDI.sendNoteOn(of_pitch, 0, of_channel);//echo the message 
-//MIDI.sendNoteOff(of_pitch, 0, of_channel);//echo the message 
+void Handle_Note_Off(byte channel, byte pitch, byte velocity){
+MIDI.sendNoteOn(pitch, 0, channel);//echo the message 
+//MIDI.sendNoteOff(pitch, 0, channel);//echo the message 
 }
 
 /////////////////////////////////
