@@ -18,7 +18,7 @@
  * In case a MIDI clock input is received, tempo is computed from that and the pot will be unresponsive. MIDI clock is always sent to the MIDI out.
  * 
  * by barito
- * (last update - 01/03/2020)
+ * (last update - 05/03/2020)
 */
 
 #include <MIDI.h>
@@ -30,6 +30,7 @@
 #define EXT_CLOCK            //uncomment or delete this line if you dont want clock to be received
 #define MIDI_CHANNEL 10      //MIDI out channel for drums. Set at your will (1-16)
 #define DISABLE_THRU
+#define ENABLE_ECHO          //When MIDI ECHO is on, whatever information is present at the MIDI INPUT jack will be sent to the MIDI OUTPUT jack.
 //#define MIN_PITCH 21
 
 MIDI_CREATE_DEFAULT_INSTANCE();
@@ -160,7 +161,6 @@ button2State = digitalRead(button2Pin);
 button3State = digitalRead(button3Pin);
 button4State = digitalRead(button4Pin);
 button5State = digitalRead(button5Pin);
-busy = 0;
 Full_Panic();
 drum = 0;
 bar = 0;
@@ -262,7 +262,9 @@ else if (clockTick == 25){//25-1 = 24 = 1 beat
 //NOTE ON
 //receive every channel and transmit over MIDI_CHANNEL
 void Handle_Note_On(byte channel, byte pitch, byte velocity){
+#ifdef ENABLE_ECHO
 MIDI.sendNoteOn(pitch, velocity, channel);//echo the message
+#endif
 if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
   noNotesYet = false;
   if(START){
@@ -364,8 +366,10 @@ if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
 //NECESSARY FOR PITCHES
 //There's no need to replicate note-on code and keep track of pitched sounds because pitched notes are turned off every next step.
 void Handle_Note_Off(byte channel, byte pitch, byte velocity){
+#ifdef ENABLE_ECHO
 MIDI.sendNoteOn(pitch, 0, channel);//echo the message 
-//MIDI.sendNoteOff(pitch, 0, channel);//echo the message 
+//MIDI.sendNoteOff(pitch, 0, channel);//echo the message
+#endif
 }
 
 /////////////////////////////////
