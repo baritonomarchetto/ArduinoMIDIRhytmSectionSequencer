@@ -1,14 +1,15 @@
 /* Arduino 64 Steps MIDI rhythm section sequencer.
  * Step-by-step and real time recording/playing.
  * 
- * - Select a drum by pressing steps from 1 to 12 while pressing "shift"
- * - Lock to a bar by pressing steps from 13 to 16 while pressing "shift"
- * - Let the sequence play over the entire 64 steps lenght by pressing lighted bar step while pressing "shift"
- * - copy and paste the locked bar by pressing "REC" while pressing "shift"
+ * - Select a drum by pressing steps from 1 to 12 while keeping pressed "shift" button.
+ * - Lock to a bar by pressing steps from 13 to 16 while keeping pressed "shift" button.
+ * - Let the sequence play over the entire 64 steps lenght by pressing lighted bar step while keeping pressed "shift" button.
+ * - copy and paste the locked bar by pressing "REC" while keeping pressed "shift" button.
  * - By pressing "roll" button, the currently active drum (see "step-by-step sequencing") will be played at each step (in a roll).
  * - By pressing any step button while keeping pressed the "mute" button the drum associated to that step will be muted (or unmuted).
  * - clear the whole sequence by keeping presed the "start" button for more than 3 seconds.
  * - clear the drum/channel sequence by pressing the drum/channel button while keeping presed "REC".
+ * - disble/enable MIDI echo by pressing "mute" button while keeping pressed "shift" button.
  * - "swing" your sequence by turning the "swing" potentiometer.
  * - drums 11 and 12 are used for arpeggio trig signals too. For V-Trig simply add a 1KOhm resistor in series with Arduino out. For S-Trig a  
  *   simple pnp transitor switch (i.e BC547 and a 1KOhm base resistor) is required.
@@ -30,7 +31,6 @@
 #define EXT_CLOCK            //uncomment or delete this line if you dont want clock to be received
 #define MIDI_CHANNEL 10      //MIDI out channel for drums. Set at your will (1-16)
 #define DISABLE_THRU
-#define ENABLE_ECHO          //When MIDI ECHO is on, whatever information is present at the MIDI INPUT jack will be sent to the MIDI OUTPUT jack.
 //#define MIN_PITCH 21
 
 MIDI_CREATE_DEFAULT_INSTANCE();
@@ -81,6 +81,7 @@ byte volShOp = 3;
 bool evenStep;
 byte swingFactor;
 byte dS;
+bool midiEcho = 1;
 unsigned long Time;
 unsigned long stepLenght; //delay between steps
 unsigned long clockLenght; // =1/6 stepenght
@@ -262,9 +263,9 @@ else if (clockTick == 25){//25-1 = 24 = 1 beat
 //NOTE ON
 //receive every channel and transmit over MIDI_CHANNEL
 void Handle_Note_On(byte channel, byte pitch, byte velocity){
-#ifdef ENABLE_ECHO
-MIDI.sendNoteOn(pitch, velocity, channel);//echo the message
-#endif
+if(midiEcho){
+  MIDI.sendNoteOn(pitch, velocity, channel);//echo the message
+}
 if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
   noNotesYet = false;
   if(START){
@@ -366,10 +367,10 @@ if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
 //NECESSARY FOR PITCHES
 //There's no need to replicate note-on code and keep track of pitched sounds because pitched notes are turned off every next step.
 void Handle_Note_Off(byte channel, byte pitch, byte velocity){
-#ifdef ENABLE_ECHO
-MIDI.sendNoteOn(pitch, 0, channel);//echo the message 
-//MIDI.sendNoteOff(pitch, 0, channel);//echo the message
-#endif
+if(midiEcho){
+  MIDI.sendNoteOn(pitch, 0, channel);//echo the message 
+  //MIDI.sendNoteOff(pitch, 0, channel);//echo the message
+}
 }
 
 /////////////////////////////////
@@ -585,7 +586,7 @@ if(digitalReadDirect(button1Pin) != button1State && millis() - dbTime > debounce
 if(digitalReadDirect(button2Pin) != button2State && millis() - dbTime > debounceTime){
   button2State = !button2State; //SHIFT
   dbTime = millis();
-    if(button2State == LOW){
+    if(button2State == LOW){  //SHIFT
       if(liveRecording) {liveRecording = false; digitalWriteDirect(recLEDPin, LOW);}
       for(int i = 0; i< STEPS_NUM; i++) {
         digitalWriteDirect(i+38, LOW); //turn OFF all LEDs, 
@@ -601,6 +602,11 @@ if(digitalReadDirect(button2Pin) != button2State && millis() - dbTime > debounce
 if(digitalReadDirect(button3Pin) != button3State && millis() - dbTime > debounceTime){
   button3State = !button3State; //MUTE
   dbTime = millis();
+  if(button3State == LOW){ //MUTE
+    if(button2State == LOW){ //SHIFT
+      midiEcho = !midiEcho;
+    }
+  } 
 }
 //////////////START-STOP//////////////////
 if(digitalReadDirect(button4Pin) != button4State && millis() - dbTime > debounceTime){//START - STOP
