@@ -132,6 +132,9 @@ MIDI.setHandleClock(Handle_Clock);
 #endif
 MIDI.setHandleNoteOn(Handle_Note_On);
 MIDI.setHandleNoteOff(Handle_Note_Off);
+MIDI.setHandleControlChange(Handle_CC);
+MIDI.setHandlePitchBend(Handle_PB);
+MIDI.setHandleAfterTouchChannel(Handle_AT);
 MIDI.begin(MIDI_CHANNEL_OMNI);// start MIDI and listen to ALL MIDI channes
 #ifdef DISABLE_THRU
 MIDI.turnThruOff();
@@ -235,6 +238,30 @@ START = false;
 bar = 0;
 Step = 0;
 Full_Panic();
+}
+
+/////////////////////////////////
+//Pitch Bend
+void Handle_PB(byte channel, int bend){
+if(midiEcho){
+  MIDI.sendPitchBend(bend, channel); //echo the message
+}
+}
+
+/////////////////////////////////
+//Control Change
+void Handle_CC(byte channel, byte number, byte value){
+if(midiEcho){
+  MIDI.sendControlChange(number, value, channel); //echo the message
+}
+}
+
+/////////////////////////////////
+//After Touch
+void Handle_AT(byte channel, byte pressure){
+if(midiEcho){
+  MIDI.sendAfterTouch(pressure, channel); //echo the message
+}
 }
 
 /////////////////////////////////
