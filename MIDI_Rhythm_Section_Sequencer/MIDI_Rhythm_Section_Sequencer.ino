@@ -19,7 +19,7 @@
  * In case a MIDI clock input is received, tempo is computed from that and the pot will be unresponsive. MIDI clock is always sent to the MIDI out.
  * 
  * by barito
- * (last update - 05/03/2020)
+ * (last update - 09/03/2020)
 */
 
 #include <MIDI.h>
@@ -106,6 +106,10 @@ boolean activeStep[DRUM_NUM][STEPS_NUM][BAR_NUM];
 
 byte bassPitch[DRUM_NUM][STEPS_NUM][BAR_NUM];
 
+byte CCNum[DRUM_NUM][STEPS_NUM][BAR_NUM];
+
+byte CCVal[DRUM_NUM][STEPS_NUM][BAR_NUM];
+
 void setup() {
 //INPUTS
 pinMode(button1Pin, INPUT_PULLUP);
@@ -184,7 +188,9 @@ for(int i = 0; i<DRUM_NUM; i++){
     for(int k = 0; k<BAR_NUM; k++){
       activeStep[i][j][k] = false;
       stepDrumVolume[i][j][k] = 0;
-      bassPitch[i][j][k] = 0;//bass pitches initialization 
+      bassPitch[i][j][k] = 0;//bass pitches initialization
+      CCNum[i][j][k] = 0;
+      CCVal[i][j][k] = 0;
     }
   }
 }
@@ -254,6 +260,12 @@ void Handle_CC(byte channel, byte number, byte value){
 if(midiEcho){
   MIDI.sendControlChange(number, value, channel); //echo the message
 }
+if(liveRecording){
+  if(number >0 && channel <=12){
+    CCNum[channel-1][Step][bar] = number;
+    CCVal[channel-1][Step][bar] = value;
+  }
+  }
 }
 
 /////////////////////////////////
@@ -521,7 +533,9 @@ for(int i = 0; i < STEPS_NUM; i++){
           for(int k = 0; k<BAR_NUM; k++){
             activeStep[drum][j][k] = false;
             stepDrumVolume[drum][j][k] = 0;
-            bassPitch[drum][j][k] = 0;//pitches initialization 
+            bassPitch[drum][j][k] = 0;//pitches initialization
+            CCNum[drum][j][k] = 0;//CCs initialization
+            CCVal[drum][j][k] = 0;//CCs initialization
           }
         }
         Drum_Panic();
@@ -561,13 +575,17 @@ if(START == true){
           digitalWriteDirect(bar+50, HIGH);//turn on the new bar
       }
     }
-    //PLAY ACTIVE STEPS 
+    //PLAY ACTIVE STEPS && CCs
     for (int j = 0; j < DRUM_NUM; j++) {
        if(activeStep[j][Step][bar] == true && muteState[j] == false) {
            if(bassPitch[j][Step][bar] == 0) {MIDI.sendNoteOn(drumNote[j], stepDrumVolume[j][Step][bar], MIDI_CHANNEL);} //DRUMS
-           else /*if(bassPitch[j][Step][bar] > 0)*/{MIDI.sendNoteOn(bassPitch[j][Step][bar], stepDrumVolume[j][Step][bar], j+1);}//play the pitch on the step channel
+           else /*if(bassPitch[j][Step][bar] > 0)*/{
+              MIDI.sendNoteOn(bassPitch[j][Step][bar], stepDrumVolume[j][Step][bar], j+1);//play the pitch on the step channel
+              if(CCNum[j][Step][bar]>0) {MIDI.sendControlChange(CCNum[j][Step][bar], CCVal[j][Step][bar], j+1);}//play CCs
+           }
        }
     }
+    //ARPEGGIATE - TRIG
     if(activeStep[DRUM_NUM-2][Step][bar] == true && muteState[DRUM_NUM-2] == false) {//ARPEGGIATOR 1, drum 11
       digitalWriteDirect(arp1OutPin, HIGH);
     }
