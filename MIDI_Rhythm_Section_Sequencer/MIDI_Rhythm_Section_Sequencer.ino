@@ -230,9 +230,12 @@ inline int digitalReadDirect(int pin){
 ////////////////////////////////
 //START - MIDI IN message
 void Handle_Start(){
+/*if(midiEcho){
+   MIDI.sendRealTime(MIDI_NAMESPACE::Start);
+}*/
 START = true;
 liveRecording = false;
-digitalWrite(recLEDPin, LOW);
+digitalWriteDirect(recLEDPin, LOW);
 bar = 0;
 Step = 0;
 }
@@ -240,6 +243,9 @@ Step = 0;
 ////////////////////////////////
 //STOP - MIDI IN message
 void Handle_Stop(){
+/*if(midiEcho){
+   MIDI.sendRealTime(MIDI_NAMESPACE::Stop);
+}*/
 START = false;
 bar = 0;
 Step = 0;
@@ -456,7 +462,7 @@ for(int i = 0; i < STEPS_NUM; i++){
                 //LIVE PLAY & RECORDING
                 if(i < DRUM_NUM){ //to avoid bar steps...
                   //LIVE PLAY
-                  MIDI.sendNoteOn(drumNote[i], pot1Val, MIDI_CHANNEL); //play the drum                  
+                  MIDI.sendNoteOn(drumNote[i], pot1ValVol, MIDI_CHANNEL); //play the drum                  
                   //LIVE RECORDING
                   if(liveRecording){ //record the drum
                     if(noNotesYet){
