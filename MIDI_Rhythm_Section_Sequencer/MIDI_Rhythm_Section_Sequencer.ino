@@ -81,7 +81,7 @@ byte volShOp = 3;
 bool evenStep;
 byte swingFactor;
 byte dS;
-bool midiEcho = 1;
+bool midiEcho = 0;
 unsigned long Time;
 unsigned long stepLenght; //delay between steps
 unsigned long clockLenght; // =1/6 stepenght
