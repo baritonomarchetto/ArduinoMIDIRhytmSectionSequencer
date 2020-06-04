@@ -19,7 +19,7 @@
  * In case a MIDI clock input is received, tempo is computed from that and the pot will be unresponsive. MIDI clock is always sent to the MIDI out.
  * 
  * by barito
- * (last update - 09/03/2020)
+ * (last update - 04/06/2020)
 */
 
 #include <MIDI.h>
@@ -27,8 +27,8 @@
 #define STEPS_NUM 16         //number of STEP BUTTONS
 #define DRUM_NUM 12          //number of drums/instruments
 #define BAR_NUM 4            //number of bars/measures
-#define SEND_INT_CLOCK       //uncomment or delete this line if you dont want internal clock to be sent out
-#define EXT_CLOCK            //uncomment or delete this line if you dont want clock to be received
+#define SEND_INT_CLOCK       //"comment" or delete this line if you dont want internal clock to be sent out
+#define EXT_CLOCK            //"comment" or delete this line if you dont want clock to be received
 #define MIDI_CHANNEL 10      //MIDI out channel for drums. Set at your will (1-16)
 #define DISABLE_THRU
 //#define MIN_PITCH 21
@@ -124,7 +124,8 @@ for (int i = 0; i < STEPS_NUM; i++){ //STEPS BUTTONS, PIN 22-37
 //OUTPUTS
 pinMode(recLEDPin, OUTPUT);
 for (int j = 0; j < STEPS_NUM; j++){ //STEPS LEDS, PIN 38-53
-  pinMode(j+38, OUTPUT);}
+  pinMode(j+38, OUTPUT);
+}
 pinMode(arp1OutPin, OUTPUT);
 pinMode(arp2OutPin, OUTPUT);
 
@@ -286,7 +287,9 @@ if(midiEcho){
 //CLOCK
 void Handle_Clock(){
 //using namespace midi;
-if(incomingClock){MIDI.sendRealTime(MIDI_NAMESPACE::Clock);}
+if(incomingClock){
+  MIDI.sendRealTime(MIDI_NAMESPACE::Clock);
+}
 //if(START == false){//COMPUTE TEMPO ONLY AT REST (TO REDUCE CPU LOAD)
 clockTick++;
 if (clockTick == 1){
@@ -310,6 +313,9 @@ else if (clockTick == 25){//25-1 = 24 = 1 beat
 void Handle_Note_On(byte channel, byte pitch, byte velocity){
 if(midiEcho){
   MIDI.sendNoteOn(pitch, velocity, channel);//echo the message
+}
+else {
+  if(channel <= DRUM_NUM && channel != MIDI_CHANNEL) {muteState[channel-1] = true;}
 }
 if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
   noNotesYet = false;
@@ -348,7 +354,7 @@ if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
         }
       }
       else{//channel != MIDI_CHANNEL -> RECORD INCOMING MIDI PITCHES
-        drum = channel-1;//this speeds up undoing the recording because it places you on the correct drum -> channel
+        drum = channel-1;//this speeds up undoing the recording because places you on the correct drum -> channel
         if(Step < STEPS_NUM-1){
           activeStep[channel-1][Step+dS][bar] = true;
           stepDrumVolume[channel-1][Step+dS][bar] = velocity;
@@ -415,6 +421,11 @@ void Handle_Note_Off(byte channel, byte pitch, byte velocity){
 if(midiEcho){
   MIDI.sendNoteOn(pitch, 0, channel);//echo the message 
   //MIDI.sendNoteOff(pitch, 0, channel);//echo the message
+}
+else {
+  if(channel <= DRUM_NUM && channel != MIDI_CHANNEL) {
+    muteState[channel-1] = false;
+  }
 }
 }
 
@@ -560,7 +571,7 @@ if(START == true){
   if(micros()-Time >= stepLenght+swingLenght){
     if(evenStep == false) {Time = micros();}
     else {Time = micros() - swingLenght;}
-    if(button2State == HIGH) {//SHIFT
+    if(button2State == HIGH) {//SHIFT not pressed
       digitalWriteDirect(Step+38, activeStep[drum][Step][bar]);//UNlit (or lit if it was active) the (running) LED, old step
     }
     for (int i = 0; i < DRUM_NUM; i++) {//CHANNELS
