@@ -81,10 +81,10 @@ byte volShOp = 3;
 bool evenStep;
 byte swingFactor;
 byte dS;
-bool midiEcho = 0;
+bool midiEcho = 1;//<<-- SET THIS ACCORDINGLY TO YOUR SETUP
 unsigned long Time;
 unsigned long stepLenght; //delay between steps
-unsigned long clockLenght; // =1/6 stepenght
+unsigned long clockLenght; // =1/6 stepLenght
 unsigned long clockTime;
 unsigned long swingLenght;
 const int debounceTime = 50;
@@ -314,7 +314,7 @@ void Handle_Note_On(byte channel, byte pitch, byte velocity){
 if(midiEcho){
   MIDI.sendNoteOn(pitch, velocity, channel);//echo the message
 }
-else {
+else { //this helps in case of a MIDI loop between a synth with only "throu" MIDI output and MRSS.
   if(channel <= DRUM_NUM && channel != MIDI_CHANNEL) {muteState[channel-1] = true;}
 }
 if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
