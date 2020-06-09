@@ -82,7 +82,7 @@ byte volShOp = 3;
 bool evenStep;
 byte swingFactor;
 byte dS;
-bool midiEcho = 1;//<<-- SET THIS ACCORDINGLY TO YOUR SETUP
+bool midiEcho = 1;//<<-- set to 0 to disable MIDI echo on startup. You can change this at any time pressing "mute" while keeping "shift".
 unsigned long Time;
 unsigned long stepLenght; //delay between steps
 unsigned long clockLenght; // =1/6 stepLenght
@@ -190,11 +190,11 @@ for(int i = 0; i<DRUM_NUM; i++){
     for(int k = 0; k<BAR_NUM; k++){
       activeStep[i][j][k] = false;
       stepDrumVolume[i][j][k] = 0;
-      for(int l = 0; l<POLYPHONY; l++){
-        bassPitch[i][j][k][l] = 0;//bass pitches initialization
-      }
       CCNum[i][j][k] = 0;
       CCVal[i][j][k] = 0;
+      for(int l = 0; l<POLYPHONY; l++){
+        bassPitch[i][j][k][l] = 0;//synth/bass pitches initialization
+      }
     }
   }
 }
@@ -271,7 +271,7 @@ if(midiEcho){
   MIDI.sendControlChange(number, value, channel); //echo the message
 }
 if(liveRecording){
-  if(number >0 && channel <=12){
+  if(number >0 && channel <=DRUM_NUM){
     CCNum[channel-1][Step][bar] = number;
     CCVal[channel-1][Step][bar] = value;
   }
@@ -317,8 +317,10 @@ void Handle_Note_On(byte channel, byte pitch, byte velocity){
 if(midiEcho){
   MIDI.sendNoteOn(pitch, velocity, channel);//echo the message
 }
-else { //this helps in case of a MIDI loop issues.
-  if(channel <= DRUM_NUM && channel != MIDI_CHANNEL) {muteState[channel-1] = true;}
+else { //this helps to limit MIDI loop issues.
+  if(channel <= DRUM_NUM && channel != MIDI_CHANNEL) {
+    muteState[channel-1] = true;
+  }
 }
 if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
   noNotesYet = false;
@@ -334,7 +336,7 @@ if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
               stepDrumVolume[i][Step+dS][bar] = velocity;
               bassPitch[i][Step+dS][bar][0] = 0;//if zero, it's a drum
             }
-            else{
+            else{//if(Step = latest step)
               if(dS == 0){
                 activeStep[i][STEPS_NUM-1][bar] = true;
                 stepDrumVolume[i][STEPS_NUM-1][bar] = velocity;
@@ -454,7 +456,7 @@ if(midiEcho){
   MIDI.sendNoteOn(pitch, 0, channel);//echo the message 
   //MIDI.sendNoteOff(pitch, 0, channel);//echo the message
 }
-else {
+else {//this helps to limit MIDI loop issues (see Handle_Note_On()).
   if(channel <= DRUM_NUM && channel != MIDI_CHANNEL) {
     muteState[channel-1] = false;
   }
@@ -582,11 +584,11 @@ for(int i = 0; i < STEPS_NUM; i++){
           for(int k = 0; k<BAR_NUM; k++){
             activeStep[drum][j][k] = false;
             stepDrumVolume[drum][j][k] = 0;
+            CCNum[drum][j][k] = 0;//CCs initialization
+            CCVal[drum][j][k] = 0;//CCs initialization
             for(int l = 0; l<POLYPHONY; l++){
               bassPitch[drum][j][k][l] = 0;//pitches initialization
             }
-            CCNum[drum][j][k] = 0;//CCs initialization
-            CCVal[drum][j][k] = 0;//CCs initialization
           }
         }
         Drum_Panic();
@@ -611,7 +613,9 @@ if(START == true){
     }
     for (int i = 0; i < DRUM_NUM; i++) {//CHANNELS
       for (int j = 0; j < POLYPHONY; j++) {//POLYPHONY
-   /*if(bassPitch[i][Step][bar] > 0) {*/MIDI.sendNoteOn(bassPitch[i][Step][bar][j], 0,i+1);//}//kill all the (previous are going to be soon) pitches.
+        if(bassPitch[i][Step][bar][j] > 0) {//synth, not drum
+          MIDI.sendNoteOn(bassPitch[i][Step][bar][j], 0,i+1);//kill all the (previous are going to be soon) synth/bass pitches.
+        }
       }
     }
     Step++;
@@ -634,9 +638,9 @@ if(START == true){
        if(activeStep[j][Step][bar] == true && muteState[j] == false) {
            if(bassPitch[j][Step][bar][0] == 0) {MIDI.sendNoteOn(drumNote[j], stepDrumVolume[j][Step][bar], MIDI_CHANNEL);} //DRUMS
            else /*if(bassPitch[j][Step][bar] > 0)*/{
-            for(int l = 0; l<POLYPHONY; l++){
-              if(bassPitch[j][Step][bar][l] > 0){
-                MIDI.sendNoteOn(bassPitch[j][Step][bar][l], stepDrumVolume[j][Step][bar], j+1);//play the pitch on the step channel
+            for(int n = 0; n<POLYPHONY; n++){
+              if(bassPitch[j][Step][bar][n] > 0){
+                MIDI.sendNoteOn(bassPitch[j][Step][bar][n], stepDrumVolume[j][Step][bar], j+1);//play all pitches on the step, channels
               }
             }
               if(CCNum[j][Step][bar]>0) {MIDI.sendControlChange(CCNum[j][Step][bar], CCVal[j][Step][bar], j+1);}//play CCs
