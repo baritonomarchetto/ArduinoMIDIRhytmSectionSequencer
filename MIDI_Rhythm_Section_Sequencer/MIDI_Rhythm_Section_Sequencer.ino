@@ -19,7 +19,7 @@
  * In case a MIDI clock input is received, tempo is computed from that and the pot will be unresponsive. MIDI clock is always sent to the MIDI out.
  * 
  * by barito
- * (last update - 08/06/2020)
+ * (last update - 24/06/2020)
 */
 
 #include <MIDI.h>
@@ -27,7 +27,7 @@
 #define STEPS_NUM 16         //number of STEP BUTTONS
 #define DRUM_NUM 12          //number of drums/instruments
 #define BAR_NUM 4            //number of bars/measures
-#define POLYPHONY 4          //number of contemporary "bass" notes playable
+#define POLYPHONY 4          //the first slot is reserved to drums. Then, the number of contemporary "bass" notes playable is this number "-1". 
 #define SEND_INT_CLOCK       //"comment" or delete this line if you dont want internal clock to be sent out
 #define EXT_CLOCK            //"comment" or delete this line if you dont want clock to be received
 #define MIDI_CHANNEL 10      //MIDI out channel for drums. Set at your will (1-16)
@@ -97,7 +97,7 @@ const unsigned long STEPLENGHTMAX = STEPLENGHTMIN + 255000;   //determines MIN B
 
 const byte drumNote[DRUM_NUM] = {60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79}; //C4 - G5 (Nord Drum 3P default + next)
 
-byte stepDrumVolume[DRUM_NUM][STEPS_NUM][BAR_NUM];
+//byte stepDrumVolume[DRUM_NUM][STEPS_NUM][BAR_NUM];
 
 boolean stepButtonState[STEPS_NUM] =  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -106,6 +106,8 @@ boolean muteState[DRUM_NUM];
 boolean activeStep[DRUM_NUM][STEPS_NUM][BAR_NUM];
 
 byte bassPitch[DRUM_NUM][STEPS_NUM][BAR_NUM][POLYPHONY];
+
+byte bassVel[DRUM_NUM][STEPS_NUM][BAR_NUM][POLYPHONY];
 
 byte CCNum[DRUM_NUM][STEPS_NUM][BAR_NUM];
 
@@ -189,11 +191,12 @@ for(int i = 0; i<DRUM_NUM; i++){
   for(int j = 0; j<STEPS_NUM; j++){
     for(int k = 0; k<BAR_NUM; k++){
       activeStep[i][j][k] = false;
-      stepDrumVolume[i][j][k] = 0;
+      //stepDrumVolume[i][j][k] = 0;
       CCNum[i][j][k] = 0;
       CCVal[i][j][k] = 0;
       for(int l = 0; l<POLYPHONY; l++){
         bassPitch[i][j][k][l] = 0;//synth/bass pitches initialization
+        bassVel[i][j][k][l] = 0;//velocities initialization
       }
     }
   }
@@ -333,25 +336,25 @@ if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
           if(pitch ==  drumNote[i]){
             if(Step < STEPS_NUM-1){
               activeStep[i][Step+dS][bar] = true;
-              stepDrumVolume[i][Step+dS][bar] = velocity;
-              bassPitch[i][Step+dS][bar][0] = 0;//if zero, it's a drum
+              bassVel[i][Step+dS][bar][0] = velocity;
+              //bassPitch[i][Step+dS][bar][0] = 0;//if zero, it's a drum
             }
             else{//if(Step = latest step)
               if(dS == 0){
                 activeStep[i][STEPS_NUM-1][bar] = true;
-                stepDrumVolume[i][STEPS_NUM-1][bar] = velocity;
-                bassPitch[i][STEPS_NUM-1][bar][0] = 0;//if zero, it's a drum
+                bassVel[i][STEPS_NUM-1][bar][0] = velocity;
+                //bassPitch[i][STEPS_NUM-1][bar][0] = 0;//if zero, it's a drum
               }
               else /*if(dS == 1)*/{
                 if(bar < BAR_NUM-1){
                   activeStep[i][0][bar+1] = true;
-                  stepDrumVolume[i][0][bar+1] = velocity;
-                  bassPitch[i][0][bar+1][0] = 0;//if zero, it's a drum
+                  bassVel[i][0][bar+1][0] = velocity;
+                  //bassPitch[i][0][bar+1][0] = 0;//if zero, it's a drum
                 }
                 else{
                   activeStep[i][0][0] = true;
-                  stepDrumVolume[i][0][0] = velocity;
-                  bassPitch[i][0][0][0] = 0;//if zero, it's a drum
+                  bassVel[i][0][0][0] = velocity;
+                  //bassPitch[i][0][0][0] = 0;//if zero, it's a drum
                 }
               }
             }
@@ -363,10 +366,10 @@ if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
         muteState[drum] = 0;//unmute
         if(Step < STEPS_NUM-1){
           activeStep[channel-1][Step+dS][bar] = true;
-          stepDrumVolume[channel-1][Step+dS][bar] = velocity;
-          for(int m = 0; m< POLYPHONY; m++) {
+          for(int m = 1; m< POLYPHONY; m++) {//m = 1 because the first slot is reserved for drums
             if(bassPitch[channel-1][Step+dS][bar][m] == 0){
-              bassPitch[channel-1][Step+dS][bar][m]= pitch;
+              bassPitch[channel-1][Step+dS][bar][m] = pitch;
+              bassVel[channel-1][Step+dS][bar][m] = velocity;
               return;
             }
           }
@@ -374,10 +377,10 @@ if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
         else{//if(Step = latest step)
           if(dS == 0){
             activeStep[channel-1][STEPS_NUM-1][bar] = true;
-            stepDrumVolume[channel-1][STEPS_NUM-1][bar] = velocity;
-            for(int m = 0; m< POLYPHONY; m++) {
+            for(int m = 1; m< POLYPHONY; m++) {//m = 1 because the first slot is reserved for drums
               if(bassPitch[channel-1][STEPS_NUM-1][bar][m] == 0){
                 bassPitch[channel-1][STEPS_NUM-1][bar][m] = pitch;
+                bassVel[channel-1][STEPS_NUM-1][bar][m] = velocity;
                 return;
               }
             }
@@ -385,57 +388,60 @@ if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
           else /*if(dS == 1)*/{
             if(bar < BAR_NUM-1){
               activeStep[channel-1][0][bar+1] = true;
-              stepDrumVolume[channel-1][0][bar+1] = velocity;
-              for(int m = 0; m< POLYPHONY; m++) {
+              for(int m = 1; m< POLYPHONY; m++) {//m = 1 because the first slot is reserved for drums
                 if(bassPitch[channel-1][0][bar+1][m] == 0){
                   bassPitch[channel-1][0][bar+1][m] = pitch;
+                  bassVel[channel-1][0][bar+1][m] = velocity;
                   return;
                 }
               }
-            }
-            else{
+             }
+            else{ //bar == BAR_NUM
               activeStep[channel-1][0][0] = true;
-              stepDrumVolume[channel-1][0][0] = velocity;
-              for(int m = 0; m< POLYPHONY; m++) {
-                if(bassPitch[channel-1][0][0][m] == 0){
-                  bassPitch[channel-1][0][0][m] = pitch;
-                  return;
+                for(int m = 1; m< POLYPHONY; m++) {//m = 1 because the first slot is reserved for drums
+                  if(bassPitch[channel-1][0][0][m] == 0){
+                    bassPitch[channel-1][0][0][m] = pitch;
+                    bassVel[channel-1][0][0][m] = velocity;
+                    return;
+                  }
                 }
-              }
-            }
-          }
-        }
-      }
-    }
+             }
+           }
+         }
+       }
+     }
   }
   else{//START == false, record incoming MIDI pitch to the specific step (kept pressed)
     //if(barHold == true && drum == channel-1){
     for(int j = 0; j< STEPS_NUM; j++) {
       if(stepButtonState[j] == LOW){ //WHILE KEEPING THE DESTINATION STEP BUTTON PRESSED
         digitalWriteDirect(j+38, HIGH);//lit the hold LED
+        //deactivate the "drum", activated or deactivated by SetStep() as soon as step button is pressed (this makes intentionally recorded drums gone lost. It would require a rewrite of the drum assign routine to work, with button release activation... but I prefer this hack)      
+        activeStep[drum][j][bar] = false; 
+        bassVel[drum][j][bar][0] = 0;
+        //DRUMS
         if(channel == MIDI_CHANNEL){ //INCOMING MIDI DRUMS
           for(int i = 0; i< DRUM_NUM; i++) {    
-            if(pitch ==  drumNote[i]){
+            if(pitch == drumNote[i]){
               activeStep[i][j][bar] = true;
-              stepDrumVolume[i][j][bar] = velocity;
-              bassPitch[i][j][bar][0] = 0;
+              bassVel[i][j][bar][0] = velocity;
+              //bassPitch[i][j][bar][0] = 0;
             }
           }
         }
-        else{//for all channels execpt MIDI_CHANNEL (and channel <= DRUM_NUM)
-          //deactivate the "drum" (activated or deactivated by SetStep() as soon as step button is pressed)...
-          activeStep[drum][j][bar] = false; 
-          stepDrumVolume[drum][j][bar] = 0;
-          for(int m = 0; m< POLYPHONY; m++) {
+        //SYNTHS
+        else{//for all channels execpt MIDI_CHANNEL (and channel <= DRUM_NUM)      
+          for(int m = 1; m< POLYPHONY; m++) {//delete all recorded messages on this step...
             bassPitch[drum][j][bar][m] = 0;
+            bassVel[drum][j][bar][m] = 0;
           }
-          //...set the incoming message to the right drum (MIDI channel). This avoid the need for a preventive selection of the right drum (channel).
+          //...set the incoming message to the right MIDI channel. This avoid the need for a preventive selection of the right drum (channel).
           activeStep[channel-1][j][bar] = true; 
-          stepDrumVolume[channel-1][j][bar] = velocity;
           muteState[channel-1] = 0;//unmute
-          for(int o = 0; o< POLYPHONY; o++) {
-            if(bassPitch[channel-1][j][bar][o] == 0){
-              bassPitch[channel-1][j][bar][o] = pitch;
+          for(int r = 1; r< POLYPHONY; r++) {
+            if(bassPitch[channel-1][j][bar][r] == 0){
+              bassPitch[channel-1][j][bar][r] = pitch;
+              bassVel[channel-1][j][bar][r] = velocity;
               return;
             }
           }
@@ -494,12 +500,12 @@ for(int i = 0; i < STEPS_NUM; i++){
                 if(noNotesYet == true){noNotesYet = false;}
                 activeStep[drum][i][bar] = !activeStep[drum][i][bar]; //activate/deactivate the step for the current drum
                 if(activeStep[drum][i][bar] == true){
-                  stepDrumVolume[drum][i][bar] = pot1ValVol;
-                  bassPitch[drum][i][bar][0] = 0;//if zero, it's a drum
+                  bassVel[drum][i][bar][0] = pot1ValVol;
+                  //bassPitch[drum][i][bar][0] = 0;//if zero, it's a drum
                 }
-                else {
-                  stepDrumVolume[drum][i][bar] = 0;
-                  bassPitch[drum][i][bar][0] = 0;
+                else {//step not active
+                  bassVel[drum][i][bar][0] = 0;
+                  //bassPitch[drum][i][bar][0] = 0;
                 }
                 digitalWriteDirect(i+38, activeStep[drum][i][bar]);//lit the (stationary) LED if the step is active
               }
@@ -519,25 +525,25 @@ for(int i = 0; i < STEPS_NUM; i++){
                     else{dS = 0;}
                     if(Step < STEPS_NUM-1){
                       activeStep[i][Step+dS][bar] = true;
-                      stepDrumVolume[i][Step+dS][bar] = pot1ValVol;
-                      bassPitch[i][Step+dS][bar][0] = 0;//if zero, it's a drum
+                      bassVel[i][Step+dS][bar][0] = pot1ValVol;
+                      //bassPitch[i][Step+dS][bar][0] = 0;//if zero, it's a drum
                     }
                     else{
                       if(dS == 0){
                         activeStep[i][STEPS_NUM-1][bar] = true;
-                        stepDrumVolume[i][STEPS_NUM-1][bar] = pot1ValVol;
-                        bassPitch[i][STEPS_NUM-1][bar][0] = 0;//if zero, it's a drum
+                        bassVel[i][STEPS_NUM-1][bar][0] = pot1ValVol;
+                        //bassPitch[i][STEPS_NUM-1][bar][0] = 0;//if zero, it's a drum
                       }
                       else /*if(dS == 1)*/{
                         if(bar < BAR_NUM-1){
                           activeStep[i][0][bar+1] = true;
-                          stepDrumVolume[i][0][bar+1] = pot1ValVol;
-                          bassPitch[i][0][bar+1][0] = 0;//if zero, it's a drum
+                          bassVel[i][0][bar+1][0] = pot1ValVol;
+                          //bassPitch[i][0][bar+1][0] = 0;//if zero, it's a drum
                         }
                         else{
                           activeStep[i][0][0] = true;
-                          stepDrumVolume[i][0][0] = pot1ValVol;
-                          bassPitch[i][0][0][0] = 0;//if zero, it's a drum
+                          bassVel[i][0][0][0] = pot1ValVol;
+                          //bassPitch[i][0][0][0] = 0;//if zero, it's a drum
                         }
                       }
                     }
@@ -583,11 +589,11 @@ for(int i = 0; i < STEPS_NUM; i++){
         for(int j = 0; j<STEPS_NUM; j++){
           for(int k = 0; k<BAR_NUM; k++){
             activeStep[drum][j][k] = false;
-            stepDrumVolume[drum][j][k] = 0;
             CCNum[drum][j][k] = 0;//CCs initialization
             CCVal[drum][j][k] = 0;//CCs initialization
             for(int l = 0; l<POLYPHONY; l++){
               bassPitch[drum][j][k][l] = 0;//pitches initialization
+              bassVel[drum][j][k][l] = 0;//velocity initialization
             }
           }
         }
@@ -612,10 +618,10 @@ if(START == true){
       digitalWriteDirect(Step+38, activeStep[drum][Step][bar]);//UNlit (or lit if it was active) the (running) LED, old step
     }
     for (int i = 0; i < DRUM_NUM; i++) {//CHANNELS
-      for (int j = 0; j < POLYPHONY; j++) {//POLYPHONY
-        if(bassPitch[i][Step][bar][j] > 0) {//synth, not drum
-          MIDI.sendNoteOn(bassPitch[i][Step][bar][j], 0,i+1);//kill all the (previous are going to be soon) synth/bass pitches.
-        }
+      for (int j = 1; j < POLYPHONY; j++) {//POLYPHONY
+        //if(bassPitch[i][Step][bar][j] > 0) {//synth, not drum
+          MIDI.sendNoteOn(bassPitch[i][Step][bar][j], 0,i+1);//KILL all the (previous are going to be soon) synth/bass pitches.
+        //}
       }
     }
     Step++;
@@ -636,15 +642,15 @@ if(START == true){
     //PLAY ACTIVE STEPS && CCs
     for (int j = 0; j < DRUM_NUM; j++) {
        if(activeStep[j][Step][bar] == true && muteState[j] == false) {
-           if(bassPitch[j][Step][bar][0] == 0) {MIDI.sendNoteOn(drumNote[j], stepDrumVolume[j][Step][bar], MIDI_CHANNEL);} //DRUMS
-           else /*if(bassPitch[j][Step][bar] > 0)*/{
-            for(int n = 0; n<POLYPHONY; n++){
-              if(bassPitch[j][Step][bar][n] > 0){
-                MIDI.sendNoteOn(bassPitch[j][Step][bar][n], stepDrumVolume[j][Step][bar], j+1);//play all pitches on the step, channels
-              }
-            }
-              if(CCNum[j][Step][bar]>0) {MIDI.sendControlChange(CCNum[j][Step][bar], CCVal[j][Step][bar], j+1);}//play CCs
+          //DRUMS
+          MIDI.sendNoteOn(drumNote[j], bassVel[j][Step][bar][0], MIDI_CHANNEL);
+          //BASS/SYNTH
+          for(int n = 1; n<POLYPHONY; n++){
+             if(bassPitch[j][Step][bar][n] > 0){
+                MIDI.sendNoteOn(bassPitch[j][Step][bar][n], bassVel[j][Step][bar][n], j+1);//play all pitches on the step, channels
+             }
            }
+           if(CCNum[j][Step][bar]>0) {MIDI.sendControlChange(CCNum[j][Step][bar], CCVal[j][Step][bar], j+1);}//play CCs
        }
     }
     //ARPEGGIATE - TRIG
@@ -657,10 +663,12 @@ if(START == true){
       else{digitalWriteDirect(arpOutPin, HIGH);}//arpeggio clock, positive edge*/
     }
     if(button5State == LOW){ //ROLL (only drums on MIDI_CHANNEL)
-      if(stepDrumVolume[drum][Step][bar]>= pot1ValVol){
-        MIDI.sendNoteOn(drumNote[drum], stepDrumVolume[drum][Step][bar], MIDI_CHANNEL);}
-      else {
-        MIDI.sendNoteOn(drumNote[drum], pot1ValVol, MIDI_CHANNEL);}
+      //if(bassVel[drum][Step][bar][0]>= pot1ValVol){
+      //  MIDI.sendNoteOn(drumNote[drum], bassVel[drum][Step][bar][0], MIDI_CHANNEL);
+      //}
+      //else {
+        MIDI.sendNoteOn(drumNote[drum], pot1ValVol, MIDI_CHANNEL);
+      //}
     }
     if(button2State == HIGH) {
       digitalWriteDirect(Step+38, !activeStep[drum][Step][bar]);//lit (or unlit if it was active!!) the (running) LED
@@ -785,15 +793,15 @@ if(incomingClock == false){
 }
 
 ///////////////////////////////////
-//Copy and Paste current bar over all bars
+//Copy and Paste current bar MIDI events over all bars
 void CopyPasteBar(){
 for(int i = 0; i< DRUM_NUM; i++) {
   for(int j = 0; j< STEPS_NUM; j++){
     for(int k = 0; k< BAR_NUM; k++) {  
-      stepDrumVolume[i][j][k] = stepDrumVolume[i][j][bar];
       activeStep[i][j][k] = activeStep[i][j][bar];
       for(int l = 0; l< POLYPHONY; l++) { 
         bassPitch[i][j][k][l] = bassPitch[i][j][bar][l];
+        bassVel[i][j][k][l] = bassVel[i][j][bar][l];
       }
     }
   }
@@ -802,7 +810,7 @@ for(int i = 0; i< DRUM_NUM; i++) {
 
 void Full_Panic(){
 for (int j = 0; j < DRUM_NUM; j++) {//the MIDI channel in this case...
-  for (int i = 0; i < 127; i++) {
+  for (int i = 0; i < 127; i++) {//all possible MIDI notes
     MIDI.sendNoteOn(i, 0, j+1); //turn off note (method 1)
     //MIDI.sendNoteOff(i, 0, j+1); //turn off note (method 2)
   }
