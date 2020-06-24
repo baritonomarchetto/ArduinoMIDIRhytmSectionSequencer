@@ -27,7 +27,7 @@
 #define STEPS_NUM 16         //number of STEP BUTTONS
 #define DRUM_NUM 12          //number of drums/instruments
 #define BAR_NUM 4            //number of bars/measures
-#define POLYPHONY 4          //the first slot is reserved to drums. Then, the number of contemporary "bass" notes playable is this number "-1". 
+#define POLYPHONY 5          //the first slot is reserved to drums. Then, the number of contemporary "bass" notes playable is this number "-1". 
 #define SEND_INT_CLOCK       //"comment" or delete this line if you dont want internal clock to be sent out
 #define EXT_CLOCK            //"comment" or delete this line if you dont want clock to be received
 #define MIDI_CHANNEL 10      //MIDI out channel for drums. Set at your will (1-16)
@@ -320,11 +320,11 @@ void Handle_Note_On(byte channel, byte pitch, byte velocity){
 if(midiEcho){
   MIDI.sendNoteOn(pitch, velocity, channel);//echo the message
 }
-else { //this helps to limit MIDI loop issues.
+/*else { //this helps to limit MIDI loop issues.
   if(channel <= DRUM_NUM && channel != MIDI_CHANNEL) {
     muteState[channel-1] = true;
   }
-}
+}*/
 if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
   noNotesYet = false;
   if(START){
@@ -430,14 +430,17 @@ if(channel <= DRUM_NUM /*&& pitch >= MIN_PITCH*/){
           }
         }
         //SYNTHS
-        else{//for all channels execpt MIDI_CHANNEL (and channel <= DRUM_NUM)      
-          for(int m = 1; m< POLYPHONY; m++) {//delete all recorded messages on this step...
-            bassPitch[drum][j][bar][m] = 0;
-            bassVel[drum][j][bar][m] = 0;
-          }
+        else{//for all channels execpt MIDI_CHANNEL (and channel <= DRUM_NUM)    
           //...set the incoming message to the right MIDI channel. This avoid the need for a preventive selection of the right drum (channel).
           activeStep[channel-1][j][bar] = true; 
           muteState[channel-1] = 0;//unmute
+          if(bassPitch[channel-1][j][bar][POLYPHONY-1] > 0){//all slot full...
+          //...delete all recorded messages on this step...
+            for(int m = 1; m< POLYPHONY; m++) {
+              bassPitch[channel-1][j][bar][m] = 0;
+              bassVel[channel-1][j][bar][m] = 0;
+            }
+          }
           for(int r = 1; r< POLYPHONY; r++) {
             if(bassPitch[channel-1][j][bar][r] == 0){
               bassPitch[channel-1][j][bar][r] = pitch;
