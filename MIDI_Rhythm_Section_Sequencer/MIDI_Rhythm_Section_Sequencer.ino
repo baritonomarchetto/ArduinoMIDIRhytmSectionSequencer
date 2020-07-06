@@ -320,7 +320,7 @@ void Handle_Note_On(byte channel, byte pitch, byte velocity){
 if(midiEcho){
   MIDI.sendNoteOn(pitch, velocity, channel);//echo the message
 }
-/*else { //this helps to limit MIDI loop issues.
+/*else { //this helps to limit MIDI loop issues. Anohter is defined in MIDI.sendNoteOff() function
   if(channel <= DRUM_NUM && channel != MIDI_CHANNEL) {
     muteState[channel-1] = true;
   }
@@ -465,11 +465,11 @@ if(midiEcho){
   MIDI.sendNoteOn(pitch, 0, channel);//echo the message 
   //MIDI.sendNoteOff(pitch, 0, channel);//echo the message
 }
-else {//this helps to limit MIDI loop issues (see Handle_Note_On()).
+/*else {//this helps to limit MIDI loop issues (see Handle_Note_On()).
   if(channel <= DRUM_NUM && channel != MIDI_CHANNEL) {
     muteState[channel-1] = false;
   }
-}
+}*/
 }
 
 /////////////////////////////////
