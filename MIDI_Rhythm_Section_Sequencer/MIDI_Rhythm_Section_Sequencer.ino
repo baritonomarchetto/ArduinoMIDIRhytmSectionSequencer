@@ -19,7 +19,7 @@
  * In case a MIDI clock input is received, tempo is computed from that and the pot will be unresponsive. MIDI clock is always sent to the MIDI out.
  * 
  * by barito
- * (last update - 24/06/2020)
+ * (last update - 08/07/2020)
 */
 
 #include <MIDI.h>
@@ -206,7 +206,7 @@ LED_Page_Update();
 
 
 void ArpTrig(){
-if(micros()-Time > 3000){ //3ms
+if(micros()-Time > 10000){ //10 ms. Increase if the synth arpeggio is not triggered (it happened to me that a freshly capped juno 6, working at 3 ms before recap, stopped working after recap and asked for 8 ms min).
   digitalWriteDirect(arp1OutPin, LOW); //V-trig
   digitalWriteDirect(arp2OutPin, LOW); //S-trig
   /*if(trigReverse){digitalWriteDirect(arpOutPin, HIGH);}//arpeggio clock, positive default state
@@ -620,10 +620,11 @@ if(START == true){
     if(button2State == HIGH) {//SHIFT not pressed
       digitalWriteDirect(Step+38, activeStep[drum][Step][bar]);//UNlit (or lit if it was active) the (running) LED, old step
     }
+    //KILL all the (previous are going to be soon) synth/bass pitches.
     for (int i = 0; i < DRUM_NUM; i++) {//CHANNELS
       for (int j = 1; j < POLYPHONY; j++) {//POLYPHONY
         //if(bassPitch[i][Step][bar][j] > 0) {//synth, not drum
-          MIDI.sendNoteOn(bassPitch[i][Step][bar][j], 0,i+1);//KILL all the (previous are going to be soon) synth/bass pitches.
+          MIDI.sendNoteOn(bassPitch[i][Step][bar][j], 0,i+1); //velocity = 0 => note off
         //}
       }
     }
@@ -665,7 +666,8 @@ if(START == true){
       /*if(trigReverse){digitalWriteDirect(arpOutPin, LOW);}//arpeggio clock, negative edge (reverse)
       else{digitalWriteDirect(arpOutPin, HIGH);}//arpeggio clock, positive edge*/
     }
-    if(button5State == LOW){ //ROLL (only drums on MIDI_CHANNEL)
+    //ROLL (only drums on MIDI_CHANNEL)
+    if(button5State == LOW){
       //if(bassVel[drum][Step][bar][0]>= pot1ValVol){
       //  MIDI.sendNoteOn(drumNote[drum], bassVel[drum][Step][bar][0], MIDI_CHANNEL);
       //}
@@ -779,7 +781,7 @@ for(int j = 0; j< 5; j++) {
 }
 
 /////////////////////////////////
-//FULL RESET
+//FULL RESET if button is kept pressed for more than 3 seconds
 void RESET(){
 if(button4State == LOW && millis()-dbTime > 3000){ //START
   LED_FULL_BLINK();
