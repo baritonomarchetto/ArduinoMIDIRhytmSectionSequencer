@@ -8,7 +8,7 @@
  * - By pressing "roll" button, the currently active drum (see "step-by-step sequencing") will be played at each step (in a roll).
  * - By pressing any step button while keeping pressed the "mute" button the drum associated to that step will be muted (or unmuted).
  * - clear the whole sequence by keeping presed the "start" button for more than 3 seconds.
- * - clear the drum/channel sequence by pressing the drum/channel button while keeping presed "REC".
+ * - clear the CC/synth/drum sequence (in this order) by pressing the drum/channel button while keeping presed "REC"
  * - disble/enable MIDI echo by pressing "mute" button while keeping pressed "shift" button.
  * - "swing" your sequence by turning the "swing" potentiometer.
  * - drums 11 and 12 are used for arpeggio trig signals too. For V-Trig simply add a 1KOhm resistor in series with Arduino out. For S-Trig a  
@@ -19,7 +19,7 @@
  * In case a MIDI clock input is received, tempo is computed from that and the pot will be unresponsive. MIDI clock is always sent to the MIDI out.
  * 
  * by barito
- * (last update - 08/07/2020)
+ * (last update - 15/07/2020)
 */
 
 #include <MIDI.h>
@@ -82,6 +82,7 @@ byte volShOp = 3;
 bool evenStep;
 byte swingFactor;
 byte dS;
+byte delParam;
 bool midiEcho = 1;//<<-- set to 0 to disable MIDI echo on startup. You can change this at any time pressing "mute" while keeping "shift".
 unsigned long Time;
 unsigned long stepLenght; //delay between steps
@@ -589,16 +590,54 @@ for(int i = 0; i < STEPS_NUM; i++){
         liveRecording = false;
         digitalWrite(recLEDPin, LOW);
         drum = i;
+        delParam = 0;
+        //if a CC value is defined for this step, delete all CC's (not pitches, nor drums)
         for(int j = 0; j<STEPS_NUM; j++){
           for(int k = 0; k<BAR_NUM; k++){
-            activeStep[drum][j][k] = false;
-            CCNum[drum][j][k] = 0;//CCs initialization
-            CCVal[drum][j][k] = 0;//CCs initialization
-            for(int l = 0; l<POLYPHONY; l++){
-              bassPitch[drum][j][k][l] = 0;//pitches initialization
-              bassVel[drum][j][k][l] = 0;//velocity initialization
+            if(CCVal[drum][j][k] > 0){
+              delParam = 1;     
             }
           }
+        }
+        if(delParam == 0){
+        //else, if a pitch is recorded, delete all pitches (not drums)
+        for(int j = 0; j<STEPS_NUM; j++){
+          for(int k = 0; k<BAR_NUM; k++){
+            if(bassPitch[drum][j][k][1] > 0){ //[1] is a [one], not a [lower case L]
+              delParam = 2;     
+            }
+          }
+        }
+        }
+        switch (delParam){
+          case 1: //CCs
+          for(int j = 0; j<STEPS_NUM; j++){
+            for(int k = 0; k<BAR_NUM; k++){
+              CCNum[drum][j][k] = 0;//CCs initialization
+              CCVal[drum][j][k] = 0;//CCs initialization
+            }
+          }
+          break;
+          case 2: //pitch
+          for(int j = 0; j<STEPS_NUM; j++){
+              for(int k = 0; k<BAR_NUM; k++){
+                for(int m = 1; m<POLYPHONY; m++){
+                  bassPitch[drum][j][k][m] = 0;//pitches initialization
+                  bassVel[drum][j][k][m] = 0;//bass/synth velocity initialization
+                  if(bassVel[drum][j][k][0] == 0){//no drums underneath...
+                    activeStep[drum][j][k] = false;
+                  }
+                }
+              }
+           }
+           break;
+           default: //drum
+           for(int j = 0; j<STEPS_NUM; j++){
+              for(int k = 0; k<BAR_NUM; k++){
+                bassVel[drum][j][k][0] = 0;//drums velocity initialization
+                activeStep[drum][j][k] = false;
+              }
+           }
         }
         Drum_Panic();
         muteState[drum] = 0;
