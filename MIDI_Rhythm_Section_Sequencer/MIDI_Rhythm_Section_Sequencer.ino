@@ -3,10 +3,11 @@
  * 
  * - Select a drum by pressing steps from 1 to 12 while keeping pressed "shift" button.
  * - Lock to a bar by pressing steps from 13 to 16 while keeping pressed "shift" button.
- * - Let the sequence play over the entire 64 steps lenght by pressing lighted bar step while keeping pressed "shift" button.
+ * - Let the sequence play over the entire 64 steps lenght by pressing the locked (lighted) bar step while keeping pressed "shift" button.
  * - copy and paste the locked bar by pressing "REC" while keeping pressed "shift" button.
  * - By pressing "roll" button, the currently active drum (see "step-by-step sequencing") will be played at each step (in a roll).
- * - By pressing any step button while keeping pressed the "mute" button the drum associated to that step will be muted (or unmuted).
+ * - By pressing any step button while keeping pressed "mute" button the drum associated to that step will be muted (or unmuted).
+ * - By pressing 1st bar button (step 13) or 2nd bar button (step 14)while keeping "mute" pressed will mute or unmute all drums.
  * - clear the whole sequence by keeping presed the "start" button for more than 3 seconds.
  * - clear the CC/synth/drum sequence (in this order) by pressing the drum/channel button while keeping presed "REC"
  * - disble/enable MIDI echo by pressing "mute" button while keeping pressed "shift" button.
@@ -19,7 +20,7 @@
  * In case a MIDI clock input is received, tempo is computed from that and the pot will be unresponsive. MIDI clock is always sent to the MIDI out.
  * 
  * by barito
- * (last update - 15/07/2020)
+ * (last update - 31/07/2020)
 */
 
 #include <MIDI.h>
@@ -556,7 +557,19 @@ for(int i = 0; i < STEPS_NUM; i++){
               }
             }
             else{ //if(button3State == LOW){//mute
-              muteState[i] = !muteState[i];
+              if(i < DRUM_NUM){ //MUTE THE SPECIFIC DRUM ONLY
+                  muteState[i] = !muteState[i];
+              }
+              else if(i == 12){ //MUTE ALL DRUMS
+                for(int x = 0; x < DRUM_NUM; x++){
+                  muteState[x] = true;
+                }
+              }
+              else if(i == 13){ //UNMUTE ALL DRUMS
+                for(int x = 0; x < DRUM_NUM; x++){
+                  muteState[x] = false;
+                }
+              }
             }
         }
         else{ //if(button2State == LOW) {//shift
